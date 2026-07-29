@@ -1,0 +1,22 @@
+{
+  "name": "tarhimsaz-android-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "اپ اندروید ترحیم ساز با صفحه اصلی دسته‌بندی‌ها، User-Agent اختصاصی، آیکون و Splash اختصاصی",
+  "scripts": {
+    "android:prepare": "node scripts/prepare-android.mjs",
+    "android:patch": "node scripts/patch-android.mjs",
+    "android:open": "npx cap open android",
+    "android:run": "npx cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.4.2",
+    "@capacitor/core": "8.4.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.4.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

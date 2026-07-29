@@ -1,0 +1,17 @@
+{
+  "appId": "com.tarhimsaz.app",
+  "appName": "ترحیم ساز",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "tarhimsaz.com",
+      "www.tarhimsaz.com"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#F7F4F0",
+    "appendUserAgent": " TarhimSazApp/1.0.0"
+  }
+}
