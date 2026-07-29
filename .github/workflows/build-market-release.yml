@@ -1,0 +1,130 @@
+name: Build Signed TarhimSaz APK and AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-signed-release:
+    name: Build signed TarhimSaz 1.0.0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Check signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          [ -n "$KEYSTORE_BASE64" ] || { echo "::error::ANDROID_KEYSTORE_BASE64 ثبت نشده است"; missing=1; }
+          [ -n "$KEYSTORE_PASSWORD" ] || { echo "::error::ANDROID_KEYSTORE_PASSWORD ثبت نشده است"; missing=1; }
+          [ -n "$KEY_ALIAS" ] || { echo "::error::ANDROID_KEY_ALIAS ثبت نشده است"; missing=1; }
+          [ -n "$KEY_PASSWORD" ] || { echo "::error::ANDROID_KEY_PASSWORD ثبت نشده است"; missing=1; }
+          [ "$missing" -eq 0 ] || exit 1
+
+      - name: Install npm packages
+        run: npm install --no-audit --no-fund
+
+      - name: Prepare Android project
+        run: npm run android:prepare
+
+      - name: Build unsigned release APK and AAB
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew clean assembleRelease bundleRelease --no-daemon --stacktrace
+
+      - name: Decode and validate upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/tarhimsaz-upload-key.jks"
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 --decode > "$KEYSTORE"
+          [ -s "$KEYSTORE" ] || { echo "::error::فایل کلید ساخته نشد"; exit 1; }
+          keytool -list -keystore "$KEYSTORE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "Upload key validated."
+
+      - name: Sign release files
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          ZIPALIGN="$BUILD_TOOLS/zipalign"
+          APKSIGNER="$BUILD_TOOLS/apksigner"
+
+          [ -x "$ZIPALIGN" ] || { echo "::error::zipalign پیدا نشد"; exit 1; }
+          [ -x "$APKSIGNER" ] || { echo "::error::apksigner پیدا نشد"; exit 1; }
+
+          KEYSTORE="$RUNNER_TEMP/tarhimsaz-upload-key.jks"
+          UNSIGNED_APK="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          UNSIGNED_AAB="android/app/build/outputs/bundle/release/app-release.aab"
+          OUT="android/app/build/outputs/publish"
+          SIGNED_APK="$OUT/tarhimsaz-v1.0.0-release.apk"
+          SIGNED_AAB="$OUT/tarhimsaz-v1.0.0-release.aab"
+
+          [ -f "$UNSIGNED_APK" ] || { echo "::error::APK خام پیدا نشد"; exit 1; }
+          [ -f "$UNSIGNED_AAB" ] || { echo "::error::AAB خام پیدا نشد"; exit 1; }
+
+          mkdir -p "$OUT"
+          "$ZIPALIGN" -f -p 4 "$UNSIGNED_APK" "$RUNNER_TEMP/tarhimsaz-aligned.apk"
+
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE" \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --out "$SIGNED_APK" \
+            "$RUNNER_TEMP/tarhimsaz-aligned.apk"
+
+          "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK" > "$OUT/apk-signature.txt"
+
+          cp "$UNSIGNED_AAB" "$SIGNED_AAB"
+          jarsigner \
+            -keystore "$KEYSTORE" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -sigalg SHA256withRSA \
+            -digestalg SHA-256 \
+            "$SIGNED_AAB" "$KEY_ALIAS"
+
+          jarsigner -verify -verbose -certs "$SIGNED_AAB" > "$OUT/aab-signature.txt"
+          sha256sum "$SIGNED_APK" "$SIGNED_AAB" > "$OUT/SHA256SUMS.txt"
+          ls -lh "$OUT"
+
+      - name: Upload signed release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarhimsaz-v1.0.0-signed-release
+          path: android/app/build/outputs/publish/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove temporary key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/tarhimsaz-upload-key.jks" "$RUNNER_TEMP/tarhimsaz-aligned.apk"
