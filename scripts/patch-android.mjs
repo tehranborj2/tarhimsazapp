@@ -10,8 +10,8 @@ const manifestPath = path.join(appMain, 'AndroidManifest.xml');
 const brandingRoot = path.join(root, 'android-branding');
 
 const packageName = 'com.tarhimsaz.app';
-const versionCode = '1';
-const versionName = '1.0.0';
+const versionCode = '2';
+const versionName = '1.0.1';
 const iconName = 'tarhimsaz_launcher';
 const roundIconName = 'tarhimsaz_launcher_round';
 const splashLogoName = 'tarhimsaz_splash_logo';
@@ -19,7 +19,7 @@ const splashPlaceholderName = 'tarhimsaz_splash_placeholder';
 const splashBackgroundName = 'tarhimsaz_splash_background';
 const splashDurationMs = 1000;
 const splashFadeDurationMs = 180;
-const appUserAgentToken = 'TarhimSazApp/1.0.0';
+const appUserAgentToken = 'TarhimSazApp/1.0.1';
 
 function requireFile(filePath, message) {
   if (!fs.existsSync(filePath)) throw new Error(message);
@@ -190,6 +190,10 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -204,6 +208,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         configureSystemBars();
+        configureSafeContentInsets();
         configureAppUserAgent();
         registerBackHandler();
 
@@ -214,11 +219,50 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void configureSystemBars() {
+        // Android 15+ نمایش edge-to-edge را اجباری می‌کند. رفتار پنجره را در همه
+        // نسخه‌ها یکسان می‌کنیم و فضای امن را جداگانه به WebView می‌دهیم.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         );
+    }
+
+    private void configureSafeContentInsets() {
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        View content = findViewById(android.R.id.content);
+        if (webView == null || content == null) return;
+
+        ViewGroup.LayoutParams rawParams = webView.getLayoutParams();
+        if (!(rawParams instanceof ViewGroup.MarginLayoutParams)) return;
+
+        ViewGroup.MarginLayoutParams initialParams =
+            (ViewGroup.MarginLayoutParams) rawParams;
+        final int initialLeft = initialParams.leftMargin;
+        final int initialTop = initialParams.topMargin;
+        final int initialRight = initialParams.rightMargin;
+        final int initialBottom = initialParams.bottomMargin;
+
+        ViewCompat.setOnApplyWindowInsetsListener(content, (view, windowInsets) -> {
+            Insets safeInsets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout()
+            );
+
+            ViewGroup.MarginLayoutParams params =
+                (ViewGroup.MarginLayoutParams) webView.getLayoutParams();
+            params.leftMargin = initialLeft + safeInsets.left;
+            params.topMargin = initialTop + safeInsets.top;
+            params.rightMargin = initialRight + safeInsets.right;
+            params.bottomMargin = initialBottom + safeInsets.bottom;
+            webView.setLayoutParams(params);
+
+            // فضای امن کاملاً روی قاب WebView اعمال شده است؛ مصرف Insets مانع
+            // دوباره‌اعمال‌شدن آن داخل CSS صفحه و ایجاد فاصله دوبرابر می‌شود.
+            return WindowInsetsCompat.CONSUMED;
+        });
+        ViewCompat.requestApplyInsets(content);
     }
 
     private void configureAppUserAgent() {

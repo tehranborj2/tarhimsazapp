@@ -4,8 +4,8 @@
 
 - نام: ترحیم ساز
 - Package ID: `com.tarhimsaz.app`
-- نسخه: `1.0.0`
-- Version Code: `1`
+- نسخه: `1.0.1`
+- Version Code: `2`
 
 ## نسخه تست
 
@@ -15,7 +15,7 @@
 
 Artifact خروجی:
 
-`tarhimsaz-v1.0.0-test-apk`
+`tarhimsaz-v1.0.1-test-apk`
 
 ## نسخه امضاشده
 

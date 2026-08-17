@@ -12,6 +12,6 @@
   "android": {
     "allowMixedContent": false,
     "backgroundColor": "#F7F4F0",
-    "appendUserAgent": " TarhimSazApp/1.0.0"
+    "appendUserAgent": " TarhimSazApp/1.0.1"
   }
 }

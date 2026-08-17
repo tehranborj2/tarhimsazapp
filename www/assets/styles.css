@@ -80,14 +80,16 @@ main { width:min(860px,100%); margin:0 auto; padding:18px 14px 28px; }
   height:calc(64px + var(--safe-bottom));
   padding:6px 24px var(--safe-bottom);
   display:flex;
-  justify-content:space-around;
+  justify-content:space-evenly;
   align-items:center;
   background:rgba(255,255,255,.98);
   border-top:1px solid var(--border);
   box-shadow:0 -6px 20px rgba(34,45,52,.06);
 }
 .bottom-nav button,.bottom-nav a {
-  width:96px;
+  flex:1 1 0;
+  max-width:120px;
+  min-width:0;
   height:50px;
   border:0;
   background:transparent;
@@ -101,7 +103,7 @@ main { width:min(860px,100%); margin:0 auto; padding:18px 14px 28px; }
 }
 .bottom-nav svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .bottom-nav button.active { color:var(--ink); }
-.bottom-nav small { font-size:11px; }
+.bottom-nav small { font-size:11px; white-space:nowrap; }
 .navigation-loading {
   position:fixed;
   inset:0;

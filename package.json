@@ -1,6 +1,6 @@
 {
   "name": "tarhimsaz-android-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "اپ اندروید ترحیم ساز با صفحه اصلی دسته‌بندی‌ها، User-Agent اختصاصی، آیکون و Splash اختصاصی",
   "scripts": {
